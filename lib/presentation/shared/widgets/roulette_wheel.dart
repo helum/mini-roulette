@@ -12,41 +12,101 @@ class RouletteWheel extends StatelessWidget {
     required this.items,
     required this.rotation,
     this.size = 320,
+    this.showPointer = true,
+    this.showLabels = true,
   });
 
   final List<RouletteItem> items;
   final double rotation;
   final double size;
+  final bool showPointer;
+  final bool showLabels;
 
   @override
   Widget build(BuildContext context) {
+    final pointerWidth = size * 0.09;
+    final pointerHeight = size * 0.12;
+    final overhang = showPointer ? pointerHeight * 0.38 : 0.0;
+    final visualRotation = showPointer ? rotation : rotation - 0.62;
+
     return SizedBox(
       width: size,
-      height: size,
+      height: size + overhang,
       child: Stack(
+        clipBehavior: Clip.none,
         alignment: Alignment.topCenter,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 18),
-            child: CustomPaint(
-              size: Size.square(size - 18),
-              painter: RouletteWheelPainter(items: items, rotation: rotation),
+          Positioned(
+            top: overhang,
+            child: _EnamelDisc(
+              size: size,
+              items: items,
+              rotation: visualRotation,
+              showLabels: showLabels,
+              lifted: showPointer,
             ),
           ),
-          const PointerMark(),
+          if (showPointer)
+            PointerMark(width: pointerWidth, height: pointerHeight),
         ],
       ),
     );
   }
 }
 
+class _EnamelDisc extends StatelessWidget {
+  const _EnamelDisc({
+    required this.size,
+    required this.items,
+    required this.rotation,
+    required this.showLabels,
+    required this.lifted,
+  });
+
+  final double size;
+  final List<RouletteItem> items;
+  final double rotation;
+  final bool showLabels;
+  final bool lifted;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: AppColors.surface,
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.ink.withValues(alpha: lifted ? 0.08 : 0.06),
+            blurRadius: lifted ? 32 : 14,
+            offset: Offset(0, lifted ? 14 : 5),
+          ),
+        ],
+      ),
+      child: CustomPaint(
+        size: Size.square(size),
+        painter: RouletteWheelPainter(
+          items: items,
+          rotation: rotation,
+          showLabels: showLabels,
+        ),
+      ),
+    );
+  }
+}
+
 class PointerMark extends StatelessWidget {
-  const PointerMark({super.key});
+  const PointerMark({super.key, this.width = 28, this.height = 34});
+
+  final double width;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      size: const Size(28, 34),
+      size: Size(width, height),
       painter: _PointerPainter(),
     );
   }
@@ -55,24 +115,28 @@ class PointerMark extends StatelessWidget {
 class _PointerPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
     final path = Path()
-      ..moveTo(size.width / 2, size.height)
-      ..lineTo(0, 4)
-      ..lineTo(size.width, 4)
+      ..moveTo(w / 2, h)
+      ..quadraticBezierTo(0, h * 0.48, w * 0.18, h * 0.28)
+      ..arcToPoint(
+        Offset(w * 0.82, h * 0.28),
+        radius: Radius.circular(w * 0.34),
+      )
+      ..quadraticBezierTo(w, h * 0.48, w / 2, h)
       ..close();
 
     canvas.drawPath(
       path,
       Paint()
-        ..color = AppColors.gold
+        ..color = AppColors.play
         ..style = PaintingStyle.fill,
     );
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = AppColors.goldLight
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2,
+    canvas.drawCircle(
+      Offset(w / 2, h * 0.3),
+      w * 0.16,
+      Paint()..color = const Color(0xFFFFFFFF),
     );
   }
 
@@ -81,79 +145,65 @@ class _PointerPainter extends CustomPainter {
 }
 
 class RouletteWheelPainter extends CustomPainter {
-  RouletteWheelPainter({required this.items, required this.rotation});
+  RouletteWheelPainter({
+    required this.items,
+    required this.rotation,
+    this.showLabels = true,
+  });
 
   final List<RouletteItem> items;
   final double rotation;
+  final bool showLabels;
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = math.min(size.width, size.height) / 2;
-    final wheelRect = Rect.fromCircle(center: center, radius: radius - 6);
 
-    canvas.drawCircle(
-      center,
-      radius,
-      Paint()
-        ..color = AppColors.gold
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 10,
-    );
-    canvas.drawCircle(
-      center,
-      radius - 2,
-      Paint()
-        ..color = const Color(0xFF3A2A16)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3,
-    );
+    canvas.drawCircle(center, radius, Paint()..color = AppColors.surface);
 
     if (items.isEmpty) {
-      canvas.drawCircle(center, radius - 8, Paint()..color = AppColors.felt);
+      canvas.drawCircle(
+        center,
+        radius * 0.78,
+        Paint()
+          ..color = AppColors.line
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5,
+      );
       return;
     }
 
     final slices = SpinEngine.sliceGeometry(items);
+    final sliceRadius = radius * 0.86;
+    final wheelRect = Rect.fromCircle(center: center, radius: sliceRadius);
+
     for (var i = 0; i < items.length; i++) {
       final slice = slices[i];
-      if (slice.sweep <= 0) {
+      final gap = items.length > 1 && slice.sweep > 0.08 ? 0.016 : 0.0;
+      final sweep = slice.sweep - gap;
+      if (sweep <= 0) {
         continue;
       }
       canvas.drawArc(
         wheelRect,
-        slice.start + rotation,
-        slice.sweep,
+        slice.start + rotation + gap / 2,
+        sweep,
         true,
         Paint()..color = items[i].color,
       );
     }
 
-    final divider = Paint()
-      ..color = AppColors.washi.withValues(alpha: 0.28)
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-    for (final slice in slices) {
-      final angle = slice.start + rotation;
-      final outer = Offset(
-        center.dx + math.cos(angle) * (radius - 6),
-        center.dy + math.sin(angle) * (radius - 6),
-      );
-      canvas.drawLine(center, outer, divider);
+    if (showLabels) {
+      _paintLabels(canvas, center, radius, slices);
     }
 
-    _paintLabels(canvas, center, radius, slices);
-
-    canvas.drawCircle(center, radius * 0.14, Paint()..color = AppColors.ink);
+    canvas.drawCircle(center, radius * 0.16, Paint()..color = AppColors.surface);
     canvas.drawCircle(
       center,
-      radius * 0.14,
-      Paint()
-        ..color = AppColors.gold
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3,
+      radius * 0.045,
+      Paint()..color = AppColors.line,
     );
-    canvas.drawCircle(center, radius * 0.045, Paint()..color = AppColors.gold);
   }
 
   void _paintLabels(
@@ -169,26 +219,26 @@ class RouletteWheelPainter extends CustomPainter {
       }
       final mid = slice.start + slice.sweep / 2 + rotation;
       final offset = Offset(
-        center.dx + math.cos(mid) * radius * 0.58,
-        center.dy + math.sin(mid) * radius * 0.58,
+        center.dx + math.cos(mid) * radius * 0.52,
+        center.dy + math.sin(mid) * radius * 0.52,
       );
-      final color = items[i].color.computeLuminance() > 0.45
+      final color = items[i].color.computeLuminance() > 0.55
           ? AppColors.ink
-          : AppColors.washi;
+          : const Color(0xFFFFFFFF);
       final painter = TextPainter(
         text: TextSpan(
           text: items[i].displayLabel,
           style: TextStyle(
             color: color,
-            fontSize: slice.sweep > 0.7 ? 15 : 12,
-            fontWeight: FontWeight.w700,
+            fontSize: slice.sweep > 0.7 ? 14 : 12,
+            fontWeight: FontWeight.w600,
           ),
         ),
         textAlign: TextAlign.center,
         textDirection: TextDirection.ltr,
         maxLines: 2,
         ellipsis: '…',
-      )..layout(maxWidth: radius * 0.42);
+      )..layout(maxWidth: radius * 0.4);
       painter.paint(
         canvas,
         offset - Offset(painter.width / 2, painter.height / 2),
@@ -198,6 +248,8 @@ class RouletteWheelPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant RouletteWheelPainter oldDelegate) {
-    return oldDelegate.rotation != rotation || oldDelegate.items != items;
+    return oldDelegate.rotation != rotation ||
+        oldDelegate.items != items ||
+        oldDelegate.showLabels != showLabels;
   }
 }

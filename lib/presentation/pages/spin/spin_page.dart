@@ -81,25 +81,33 @@ class _SpinPageState extends ConsumerState<SpinPage>
       return;
     }
     final winner = items[plan.winnerIndex];
-    HapticFeedback.mediumImpact();
+    HapticFeedback.lightImpact();
     await showDialog<void>(
       context: context,
+      barrierColor: AppColors.ink.withValues(alpha: 0.28),
       builder: (context) => AlertDialog(
-        title: const Text('結果'),
+        title: const Text(
+          '結果',
+          style: TextStyle(
+            color: AppColors.muted,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircleAvatar(backgroundColor: winner.color, radius: 28),
-            const SizedBox(height: 16),
+            const SizedBox(height: 4),
+            CircleAvatar(backgroundColor: winner.color, radius: 22),
+            const SizedBox(height: 20),
             Text(
               winner.displayLabel,
-              style: Theme.of(
-                context,
-              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+              style: Theme.of(context).textTheme.headlineSmall,
               textAlign: TextAlign.center,
             ),
           ],
         ),
+        actionsAlignment: MainAxisAlignment.center,
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -162,49 +170,46 @@ class _SpinPageState extends ConsumerState<SpinPage>
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          padding: const EdgeInsets.fromLTRB(28, 8, 28, 28),
           child: Column(
             children: [
               Expanded(
-                child: Center(
-                  child: AnimatedBuilder(
-                    animation: _controller,
-                    builder: (context, _) {
-                      return RouletteWheel(
-                        items: selected.items,
-                        rotation: _rotation.value,
-                      );
-                    },
-                  ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final maxSide = math.min(
+                      constraints.maxWidth,
+                      constraints.maxHeight,
+                    );
+                    final disc = maxSide / 1.08;
+                    return Center(
+                      child: AnimatedBuilder(
+                        animation: _controller,
+                        builder: (context, _) {
+                          return RouletteWheel(
+                            items: selected.items,
+                            rotation: _rotation.value,
+                            size: disc,
+                          );
+                        },
+                      ),
+                    );
+                  },
                 ),
               ),
+              const SizedBox(height: 20),
               if (!selected.canSpin)
                 const Padding(
-                  padding: EdgeInsets.only(bottom: 16),
+                  padding: EdgeInsets.only(bottom: 20),
                   child: Text(
                     '項目が 2 つ以上ないと回せません',
-                    style: TextStyle(color: AppColors.goldLight),
+                    style: TextStyle(color: AppColors.muted),
                   ),
                 ),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: !_spinning && selected.canSpin
-                      ? () => _spin(selected.items)
-                      : null,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.lacquer,
-                    foregroundColor: AppColors.washi,
-                    disabledBackgroundColor: AppColors.surfaceHigh,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    textStyle: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                  child: Text(_spinning ? '回転中…' : '回す'),
-                ),
+              FilledButton(
+                onPressed: !_spinning && selected.canSpin
+                    ? () => _spin(selected.items)
+                    : null,
+                child: Text(_spinning ? '回転中…' : '回す'),
               ),
             ],
           ),

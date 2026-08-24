@@ -56,24 +56,21 @@ class _EditCategoryBody extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('ルーレットを編集')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+        padding: const EdgeInsets.fromLTRB(28, 12, 28, 48),
         children: [
           _NameField(category: category),
-          const SizedBox(height: 20),
+          const SizedBox(height: 28),
           if (!category.canSpin)
             const Padding(
-              padding: EdgeInsets.only(bottom: 16),
+              padding: EdgeInsets.only(bottom: 20),
               child: Text(
                 '回すには項目を 2 つ以上登録してください',
-                style: TextStyle(color: AppColors.goldLight),
+                style: TextStyle(color: AppColors.muted),
               ),
             ),
           Row(
             children: [
-              const Text(
-                '項目',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-              ),
+              Text('項目', style: Theme.of(context).textTheme.titleMedium),
               const Spacer(),
               Text(
                 '${category.items.length} 件',
@@ -81,26 +78,21 @@ class _EditCategoryBody extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           for (final item in category.items) ...[
             _ItemEditor(
               key: ValueKey(item.id),
               category: category,
               item: item,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
           ],
           OutlinedButton.icon(
             onPressed: () {
               ref.read(contentControllerProvider.notifier).addItem(category);
             },
-            icon: const Icon(Icons.add),
+            icon: const Icon(Icons.add, size: 20),
             label: const Text('項目を追加'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.goldLight,
-              side: const BorderSide(color: AppColors.goldLine),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-            ),
           ),
         ],
       ),
@@ -190,7 +182,7 @@ class _ItemEditorState extends ConsumerState<_ItemEditor> {
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 8, 14),
+        padding: const EdgeInsets.fromLTRB(18, 16, 10, 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -217,19 +209,19 @@ class _ItemEditorState extends ConsumerState<_ItemEditor> {
                         .read(contentControllerProvider.notifier)
                         .save(category.copyWith(items: next));
                   },
-                  icon: const Icon(Icons.delete_outline),
+                  icon: const Icon(Icons.close, size: 20),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             const Text(
               '色',
               style: TextStyle(color: AppColors.muted, fontSize: 12),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Wrap(
-              spacing: 8,
-              runSpacing: 8,
+              spacing: 10,
+              runSpacing: 10,
               children: [
                 for (final color in AppColors.itemPalette)
                   GestureDetector(
@@ -237,27 +229,27 @@ class _ItemEditorState extends ConsumerState<_ItemEditor> {
                       item.copyWith(colorValue: color.toARGB32()),
                     ),
                     child: Container(
-                      width: 28,
-                      height: 28,
+                      width: 32,
+                      height: 32,
                       decoration: BoxDecoration(
                         color: color,
                         shape: BoxShape.circle,
                         border: Border.all(
                           color: item.colorValue == color.toARGB32()
-                              ? AppColors.goldLight
+                              ? AppColors.ink
                               : Colors.transparent,
-                          width: 2.5,
+                          width: 2,
                         ),
                       ),
                     ),
                   ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             TextField(
               controller: _weight,
               decoration: const InputDecoration(
-                labelText: '重み（大きいほど当たりやすい）',
+                labelText: '重み（大きいほど出やすい）',
                 isDense: true,
               ),
               keyboardType: const TextInputType.numberWithOptions(decimal: true),

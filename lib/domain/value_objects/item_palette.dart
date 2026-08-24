@@ -1,13 +1,13 @@
 abstract final class ItemPalette {
   static const values = <int>[
-    0xFFC41E3A,
-    0xFF1B6CA8,
-    0xFF2A9D6A,
-    0xFFD97706,
-    0xFF6D28D9,
-    0xFF0F766E,
-    0xFFBE185D,
-    0xFF1E3A5F,
+    0xFFE07A6E,
+    0xFF5B9BD5,
+    0xFF6DBF8B,
+    0xFFE8A85A,
+    0xFF8B7EC8,
+    0xFF4AA8A4,
+    0xFFD4729A,
+    0xFF7A8B9A,
   ];
 
   static int at(int index) => values[index % values.length];
