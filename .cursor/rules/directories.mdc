@@ -42,18 +42,21 @@ flowchart TB
 
 | パス | 責務 |
 | --- | --- |
-| `lib/main.dart` | 起動。向き固定、システム UI、SharedPreferences 移行、`LocalRoulettesApi` と `RoulettesRepositoryImpl` の生成、`runApp`。 |
-| `lib/app.dart` | `MiniRouletteApp`。`roulettesRepositoryProvider` の上書き、`MaterialApp`（ja、テーマ、`HomePage`）。 |
+| `lib/main.dart` | 起動。向き固定、システム UI、SharedPreferences 移行、`LocalRoulettesApi` / `LocalNotificationsApi` と Repository / Scheduler の生成、`runApp`、その後に通知の全件再同期。 |
+| `lib/app.dart` | `MiniRouletteApp`。`roulettesRepositoryProvider` と `notificationSchedulerProvider` の上書き、`MaterialApp`（ja、テーマ、`HomePage`）。起動経由・実行中どちらの通知タップも一覧まで戻してから回転または編集へ遷移。 |
 | `lib/domain/entities/` | 集約とエンティティ。JSON 入出力もエンティティが持つ。 |
-| `lib/domain/entities/roulette_category.dart` | ルーレット。`canSpin`（項目2つ以上）、表示名、`copyWith`。 |
+| `lib/domain/entities/roulette_category.dart` | ルーレット。`canSpin`（項目2つ以上）、表示名、`notification`、`copyWith`。 |
 | `lib/domain/entities/roulette_item.dart` | 項目。`label` / `colorValue` / `weight`、表示ラベル。 |
 | `lib/domain/value_objects/` | 識別を持たない値。 |
 | `lib/domain/value_objects/item_palette.dart` | 項目色パレット。 |
 | `lib/domain/value_objects/spin_plan.dart` | 当選インデックスと終了回転角。 |
+| `lib/domain/value_objects/notification_settings.dart` | 通知の ON/OFF、毎日／毎週、時刻、曜日。 |
 | `lib/domain/repositories/` | 永続化の契約のみ。 |
 | `lib/domain/repositories/roulettes_repository.dart` | `watchRoulettes` / `saveRoulette` / `deleteRoulette` / `close`。 |
+| `lib/domain/repositories/notification_scheduler.dart` | `sync` / `cancel` / `syncAll` / `requestPermission` / `launchCategoryId`。OS アラームの永続化ポート。 |
 | `lib/domain/services/` | 状態を持たないドメイン計算。 |
 | `lib/domain/services/spin_engine.dart` | 重み付き抽選、スライス幾何、ポインタ位置、回転計画。 |
+| `lib/domain/services/notification_planner.dart` | 予約プラン（id / 時刻 / 曜日）と次回発火までの日数を純計算。プラグインなし。 |
 | `lib/application/roulette/usecases/` | 1操作1クラス。Repository または Domain Service を呼ぶ。 |
 | `.../watch_roulettes_use_case.dart` | 一覧の購読。 |
 | `.../save_roulette_use_case.dart` | 保存。 |
@@ -61,14 +64,20 @@ flowchart TB
 | `.../create_roulette_use_case.dart` | 既定2項目の新規作成。 |
 | `.../add_roulette_item_use_case.dart` | パレット順の項目追加。 |
 | `.../plan_spin_use_case.dart` | `SpinEngine.planSpin` の入口。 |
+| `.../sync_roulette_notification_use_case.dart` | 1件の OS 予約を同期。 |
+| `.../cancel_roulette_notification_use_case.dart` | 1件の OS 予約を取消。 |
+| `.../request_notification_permission_use_case.dart` | 通知許可の要求。 |
 | `lib/data/datasources/` | 永続化 API。Repository 契約は置かない。 |
 | `lib/data/datasources/roulettes_api.dart` | データソース契約。 |
 | `lib/data/datasources/local_roulettes_api.dart` | SharedPreferences 実装。初回はサンプル投入。 |
 | `lib/data/datasources/in_memory_roulettes_api.dart` | テスト用メモリ実装。 |
+| `lib/data/datasources/local_notifications_api.dart` | `flutter_local_notifications` のラッパ。予約は inexact アラーム。 |
 | `lib/data/repositories/roulettes_repository_impl.dart` | `RoulettesApi` への委譲。変換を増やしすぎない。 |
-| `lib/presentation/controllers/domain/content_controller.dart` | `ContentController` と Repository / UseCase Provider。 |
+| `lib/data/repositories/notification_scheduler_impl.dart` | `LocalNotificationsApi` と `NotificationPlanner` で予約を同期。書き込みは直列化。 |
+| `lib/data/repositories/in_memory_notification_scheduler.dart` | テスト用の `NotificationScheduler`。 |
+| `lib/presentation/controllers/domain/content_controller.dart` | `ContentController` と Repository / UseCase Provider。通知同期は通知設定か表示名が変わった保存だけ。 |
 | `lib/presentation/pages/home/` | 一覧。作成・編集・回転への遷移。 |
-| `lib/presentation/pages/edit_category/` | 名前と項目の編集。 |
+| `lib/presentation/pages/edit_category/` | 名前・項目・通知設定の編集。 |
 | `lib/presentation/pages/spin/` | 回転と結果。計画は controller 経由。 |
 | `lib/presentation/shared/theme/` | テーマと色トークン。 |
 | `lib/presentation/shared/widgets/` | 共有描画（ルーレット円盤など）。 |

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mini_roulette/domain/entities/roulette_category.dart';
 import 'package:mini_roulette/domain/entities/roulette_item.dart';
+import 'package:mini_roulette/domain/value_objects/notification_settings.dart';
 import 'package:mini_roulette/presentation/controllers/domain/content_controller.dart';
 import 'package:mini_roulette/presentation/shared/theme/app_colors.dart';
 
@@ -59,6 +60,8 @@ class _EditCategoryBody extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(28, 12, 28, 48),
         children: [
           _NameField(category: category),
+          const SizedBox(height: 20),
+          _NotificationCard(category: category),
           const SizedBox(height: 28),
           if (!category.canSpin)
             const Padding(
@@ -80,11 +83,7 @@ class _EditCategoryBody extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           for (final item in category.items) ...[
-            _ItemEditor(
-              key: ValueKey(item.id),
-              category: category,
-              item: item,
-            ),
+            _ItemEditor(key: ValueKey(item.id), category: category, item: item),
             const SizedBox(height: 16),
           ],
           OutlinedButton.icon(
@@ -144,6 +143,183 @@ class _NameFieldState extends ConsumerState<_NameField> {
             .save(widget.category.copyWith(name: value));
       },
     );
+  }
+}
+
+class _NotificationCard extends ConsumerWidget {
+  const _NotificationCard({required this.category});
+
+  final RouletteCategory category;
+
+  static const _weekdayLabels = <int, String>{
+    DateTime.monday: '月',
+    DateTime.tuesday: '火',
+    DateTime.wednesday: '水',
+    DateTime.thursday: '木',
+    DateTime.friday: '金',
+    DateTime.saturday: '土',
+    DateTime.sunday: '日',
+  };
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = category.notification;
+    final time = TimeOfDay(hour: settings.hour, minute: settings.minute);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 8, 10, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('通知'),
+              value: settings.enabled,
+              onChanged: (enabled) => _setEnabled(context, ref, enabled),
+            ),
+            if (settings.enabled) ...[
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('時刻'),
+                trailing: Text(time.format(context)),
+                onTap: () => _pickTime(context, ref, time),
+              ),
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 8,
+                children: [
+                  ChoiceChip(
+                    label: const Text('毎日'),
+                    selected: settings.frequency == NotificationFrequency.daily,
+                    onSelected: (_) => _save(
+                      context,
+                      ref,
+                      settings.copyWith(frequency: NotificationFrequency.daily),
+                    ),
+                  ),
+                  ChoiceChip(
+                    label: const Text('毎週'),
+                    selected:
+                        settings.frequency == NotificationFrequency.weekly,
+                    onSelected: (_) => _save(
+                      context,
+                      ref,
+                      settings.copyWith(
+                        frequency: NotificationFrequency.weekly,
+                        weekdays: settings.weekdays.isEmpty
+                            ? {DateTime.monday}
+                            : settings.weekdays,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (settings.frequency == NotificationFrequency.weekly) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final entry in _weekdayLabels.entries)
+                      FilterChip(
+                        label: Text(entry.value),
+                        selected: settings.weekdays.contains(entry.key),
+                        onSelected: (selected) {
+                          final next = {...settings.weekdays};
+                          if (selected) {
+                            next.add(entry.key);
+                          } else {
+                            next.remove(entry.key);
+                          }
+                          _save(
+                            context,
+                            ref,
+                            settings.copyWith(weekdays: next),
+                          );
+                        },
+                      ),
+                  ],
+                ),
+                if (settings.weekdays.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Text(
+                      '曜日を 1 つ以上選んでください',
+                      style: TextStyle(color: AppColors.muted, fontSize: 12),
+                    ),
+                  ),
+              ],
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _setEnabled(
+    BuildContext context,
+    WidgetRef ref,
+    bool enabled,
+  ) async {
+    if (enabled) {
+      final granted = await ref
+          .read(contentControllerProvider.notifier)
+          .requestNotificationPermission();
+      if (!granted) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('通知の許可が必要です')));
+        }
+        return;
+      }
+      if (!context.mounted) {
+        return;
+      }
+    }
+    await _save(context, ref, _settingsOf(enabled: enabled));
+  }
+
+  NotificationSettings _settingsOf({required bool enabled}) {
+    return category.notification.copyWith(enabled: enabled);
+  }
+
+  Future<void> _pickTime(
+    BuildContext context,
+    WidgetRef ref,
+    TimeOfDay current,
+  ) async {
+    final picked = await showTimePicker(context: context, initialTime: current);
+    if (picked == null) {
+      return;
+    }
+    if (!context.mounted) {
+      return;
+    }
+    await _save(
+      context,
+      ref,
+      category.notification.copyWith(hour: picked.hour, minute: picked.minute),
+    );
+  }
+
+  Future<void> _save(
+    BuildContext context,
+    WidgetRef ref,
+    NotificationSettings notification,
+  ) async {
+    try {
+      await ref
+          .read(contentControllerProvider.notifier)
+          .save(category.copyWith(notification: notification));
+    } on Object {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('通知の設定を保存できませんでした')));
+      }
+    }
   }
 }
 
@@ -225,9 +401,8 @@ class _ItemEditorState extends ConsumerState<_ItemEditor> {
               children: [
                 for (final color in AppColors.itemPalette)
                   GestureDetector(
-                    onTap: () => _patch(
-                      item.copyWith(colorValue: color.toARGB32()),
-                    ),
+                    onTap: () =>
+                        _patch(item.copyWith(colorValue: color.toARGB32())),
                     child: Container(
                       width: 32,
                       height: 32,
@@ -252,7 +427,9 @@ class _ItemEditorState extends ConsumerState<_ItemEditor> {
                 labelText: '重み（大きいほど出やすい）',
                 isDense: true,
               ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
               ],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mini_roulette/app.dart';
+import 'package:mini_roulette/data/repositories/in_memory_notification_scheduler.dart';
 import 'package:mini_roulette/data/datasources/in_memory_roulettes_api.dart';
 import 'package:mini_roulette/data/datasources/local_roulettes_api.dart';
 import 'package:mini_roulette/data/repositories/roulettes_repository_impl.dart';
@@ -23,7 +24,12 @@ void main() {
     );
     addTearDown(repository.close);
 
-    await tester.pumpWidget(MiniRouletteApp(roulettesRepository: repository));
+    await tester.pumpWidget(
+      MiniRouletteApp(
+        roulettesRepository: repository,
+        notificationScheduler: InMemoryNotificationScheduler(),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('ミニルーレット'), findsOneWidget);
@@ -41,7 +47,12 @@ void main() {
     );
     addTearDown(repository.close);
 
-    await tester.pumpWidget(MiniRouletteApp(roulettesRepository: repository));
+    await tester.pumpWidget(
+      MiniRouletteApp(
+        roulettesRepository: repository,
+        notificationScheduler: InMemoryNotificationScheduler(),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('今日のランチ'));
     await tester.pumpAndSettle();
@@ -60,7 +71,12 @@ void main() {
     );
     addTearDown(repository.close);
 
-    await tester.pumpWidget(MiniRouletteApp(roulettesRepository: repository));
+    await tester.pumpWidget(
+      MiniRouletteApp(
+        roulettesRepository: repository,
+        notificationScheduler: InMemoryNotificationScheduler(),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('今日のランチ'));
     await tester.pumpAndSettle();
@@ -78,16 +94,19 @@ void main() {
     const category = RouletteCategory(
       id: 'one',
       name: '足りないルーレット',
-      items: [
-        RouletteItem(id: 'a', label: 'だけ', colorValue: 0xFFC41E3A),
-      ],
+      items: [RouletteItem(id: 'a', label: 'だけ', colorValue: 0xFFC41E3A)],
     );
     final repository = RoulettesRepositoryImpl(
       roulettesApi: InMemoryRoulettesApi(seed: const [category]),
     );
     addTearDown(repository.close);
 
-    await tester.pumpWidget(MiniRouletteApp(roulettesRepository: repository));
+    await tester.pumpWidget(
+      MiniRouletteApp(
+        roulettesRepository: repository,
+        notificationScheduler: InMemoryNotificationScheduler(),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('足りないルーレット'));
     await tester.pumpAndSettle();
@@ -103,7 +122,12 @@ void main() {
     );
     addTearDown(repository.close);
 
-    await tester.pumpWidget(MiniRouletteApp(roulettesRepository: repository));
+    await tester.pumpWidget(
+      MiniRouletteApp(
+        roulettesRepository: repository,
+        notificationScheduler: InMemoryNotificationScheduler(),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('ルーレットを追加'));
     await tester.pumpAndSettle();

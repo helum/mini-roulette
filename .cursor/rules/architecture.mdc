@@ -22,12 +22,16 @@ flowchart TB
   subgraph domain["domain"]
     entities["entities / value_objects"]
     repoIf["RoulettesRepository"]
+    schedulerIf["NotificationScheduler"]
     engine["SpinEngine"]
+    planner["NotificationPlanner"]
   end
   subgraph data["data"]
     repoImpl["RoulettesRepositoryImpl"]
+    schedImpl["NotificationSchedulerImpl"]
     api["RoulettesApi"]
     local["LocalRoulettesApi"]
+    notifApi["LocalNotificationsApi"]
   end
 
   main --> pages
@@ -35,13 +39,21 @@ flowchart TB
   pages --> controller
   controller --> usecases
   usecases --> repoIf
+  usecases --> schedulerIf
   usecases --> engine
+  usecases --> planner
   usecases --> entities
   repoIf --> entities
+  schedulerIf --> entities
   engine --> entities
+  planner --> entities
   repoImpl -.-> repoIf
   repoImpl --> api
   local -.-> api
+  schedImpl -.-> schedulerIf
+  schedImpl --> notifApi
+  schedImpl --> planner
+  notifApi -.-> plugin["flutter_local_notifications"]
 ```
 
 ```mermaid
@@ -52,12 +64,14 @@ sequenceDiagram
   participant CC as ContentController
   participant UC as UseCase
   participant Repo as RoulettesRepository
+  participant Sched as NotificationScheduler
   participant Engine as SpinEngine
 
-  Main->>App: LocalRoulettesApi と Repository を注入
+  Main->>App: LocalRoulettesApi / LocalNotificationsApi と Repository / Scheduler を注入
   Page->>CC: watch / 操作
   CC->>UC: call
   UC->>Repo: watch / save / delete
+  UC->>Sched: sync / cancel / requestPermission
   UC->>Engine: planSpin
   Engine-->>Page: SpinPlan
 ```
@@ -69,25 +83,28 @@ sequenceDiagram
 | data | リポジトリ実装、永続化 API | Widget、ユースケース、画面状態 |
 | presentation | Page、共有 Widget、テーマ、Riverpod コントローラ | SharedPreferences 直接操作、抽選アルゴリズム本体 |
 
-- 具象の組み立ては `lib/main.dart`。`app.dart` の `ProviderScope` で `RoulettesRepository` を注入する。
+- 具象の組み立ては `lib/main.dart`。`app.dart` の `ProviderScope` で `RoulettesRepository` と `NotificationScheduler` を注入する。
 - 画面は `ContentController` 経由で UseCase を呼ぶ。Page から Repository / DataSource を触らない。
 - 抽選・回転計画は `SpinEngine`。Widget や controller に再実装しない。
+- 通知の予約プランと次回発火日の計算は `NotificationPlanner`。OS 予約は `NotificationScheduler`。Widget からプラグインを直接触らない。
+- 通知は inexact アラームで予約する。`SCHEDULE_EXACT_ALARM` は要求しない。
 - 新しい操作は UseCase を追加し、`ContentController` から呼ぶ。
 - `presentation` は `data` を import しない。`application` は `data` / `presentation` を import しない。`domain` は外側を import しない。
 
 ## 実行時の流れ
 
-1. `main.dart` が `LocalRoulettesApi` と `RoulettesRepositoryImpl` を作る。
-2. `MiniRouletteApp` が `roulettesRepositoryProvider` を上書きする。
+1. `main.dart` が `LocalRoulettesApi` / `LocalNotificationsApi` と `RoulettesRepositoryImpl` / `NotificationSchedulerImpl` を作る。
+2. `MiniRouletteApp` が `roulettesRepositoryProvider` と `notificationSchedulerProvider` を上書きする。
 3. `ContentController` が `WatchRoulettesUseCase` を購読し、画面へ一覧を流す。
-4. 作成・保存・削除・項目追加は対応する UseCase が Repository を呼ぶ。
+4. 作成・保存・削除・項目追加は対応する UseCase が Repository を呼ぶ。保存で通知設定か表示名が変わったときだけ通知を同期し、削除後は予約を取り消す。
 5. 回転は `PlanSpinUseCase` → `SpinEngine` → `SpinPlan`。`SpinPage` がアニメーションする。
+6. 全ルーレットの OS 予約の再同期は `runApp` の後に走らせ、初回フレームを待たせない。通知タップは該当ルーレットの回転画面（回せなければ編集画面）を開く。
 
 遷移は Navigator の `MaterialPageRoute`。専用 router は使わない。
 
 ## 依存注入と永続化
 
 - 状態管理は `flutter_riverpod`。UseCase Provider は `content_controller.dart` に同居させる。
-- `roulettesRepositoryProvider` は未上書き時に `UnimplementedError`。本番は `app.dart`、テストは `ProviderScope` で上書きする。
+- `roulettesRepositoryProvider` と `notificationSchedulerProvider` は未上書き時に `UnimplementedError`。本番は `app.dart`、テストは `ProviderScope` で上書きする。
 - 永続化は SharedPreferences のキー `roulette_categories`。未保存時は `LocalRoulettesApi.sampleCategories()`。
 - JSON は domain エンティティの `toJson` / `fromJson` を使う。data 層に DTO を増やさない。
