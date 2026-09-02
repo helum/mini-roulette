@@ -7,7 +7,10 @@ import 'package:mini_roulette/data/repositories/roulettes_repository_impl.dart';
 import 'package:mini_roulette/domain/entities/roulette_category.dart';
 import 'package:mini_roulette/domain/entities/roulette_item.dart';
 import 'package:mini_roulette/presentation/pages/edit_category/edit_category_page.dart';
+import 'package:mini_roulette/presentation/pages/onboarding/onboarding_page.dart';
 import 'package:mini_roulette/presentation/pages/spin/spin_page.dart';
+
+import 'support/pump_mini_roulette_app.dart';
 
 void main() {
   const lunch = RouletteCategory(
@@ -32,17 +35,11 @@ void main() {
       roulettesApi: InMemoryRoulettesApi(seed: seed),
     );
     addTearDown(repository.close);
-    final scheduler = InMemoryNotificationScheduler();
-    addTearDown(scheduler.dispose);
-
-    await tester.pumpWidget(
-      MiniRouletteApp(
-        roulettesRepository: repository,
-        notificationScheduler: scheduler,
-      ),
+    final scheduler = await pumpMiniRouletteApp(
+      tester,
+      repository: repository,
     );
-    await tester.pumpAndSettle();
-    return scheduler;
+    return scheduler as InMemoryNotificationScheduler;
   }
 
   testWidgets('通知タップで回せるルーレットの回転画面が開く', (tester) async {
@@ -106,10 +103,80 @@ void main() {
       MiniRouletteApp(
         roulettesRepository: repository,
         notificationScheduler: scheduler,
+        onboardingRepository: createOnboardingRepository(),
       ),
     );
     await tester.pumpAndSettle();
 
     expect(find.byType(SpinPage), findsOneWidget);
+  });
+
+  testWidgets('通知から起動したときは操作説明をスキップする', (tester) async {
+    final repository = RoulettesRepositoryImpl(
+      roulettesApi: InMemoryRoulettesApi(seed: const [lunch]),
+    );
+    addTearDown(repository.close);
+    final scheduler = InMemoryNotificationScheduler()..launchId = 'lunch';
+    addTearDown(scheduler.dispose);
+    final onboardingRepository = createOnboardingRepository(completed: false);
+
+    await tester.pumpWidget(
+      MiniRouletteApp(
+        roulettesRepository: repository,
+        notificationScheduler: scheduler,
+        onboardingRepository: onboardingRepository,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SpinPage), findsOneWidget);
+    expect(await onboardingRepository.hasCompleted(), isTrue);
+
+    final nav = tester.state<NavigatorState>(find.byType(Navigator).first);
+    nav.pop();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(OnboardingPage), findsNothing);
+    expect(find.text('今日のランチ'), findsOneWidget);
+  });
+
+  testWidgets('初回起動では操作説明が表示される', (tester) async {
+    final repository = RoulettesRepositoryImpl(
+      roulettesApi: InMemoryRoulettesApi(seed: const [lunch]),
+    );
+    addTearDown(repository.close);
+
+    await pumpMiniRouletteApp(
+      tester,
+      repository: repository,
+      onboardingCompleted: false,
+    );
+
+    expect(find.byType(OnboardingPage), findsOneWidget);
+    expect(find.text('使い方'), findsOneWidget);
+    expect(find.text('タップして回す'), findsOneWidget);
+  });
+
+  testWidgets('操作説明を完了すると一覧が表示される', (tester) async {
+    final repository = RoulettesRepositoryImpl(
+      roulettesApi: InMemoryRoulettesApi(seed: const [lunch]),
+    );
+    addTearDown(repository.close);
+
+    await pumpMiniRouletteApp(
+      tester,
+      repository: repository,
+      onboardingCompleted: false,
+    );
+
+    await tester.tap(find.text('次へ'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('次へ'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('はじめる'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(OnboardingPage), findsNothing);
+    expect(find.text('今日のランチ'), findsOneWidget);
   });
 }

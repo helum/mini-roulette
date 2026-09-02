@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mini_roulette/app.dart';
-import 'package:mini_roulette/data/repositories/in_memory_notification_scheduler.dart';
 import 'package:mini_roulette/data/datasources/in_memory_roulettes_api.dart';
 import 'package:mini_roulette/data/datasources/local_roulettes_api.dart';
 import 'package:mini_roulette/data/repositories/roulettes_repository_impl.dart';
@@ -10,6 +8,8 @@ import 'package:mini_roulette/domain/entities/roulette_item.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+
+import '../../../support/pump_mini_roulette_app.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -24,13 +24,7 @@ void main() {
     );
     addTearDown(repository.close);
 
-    await tester.pumpWidget(
-      MiniRouletteApp(
-        roulettesRepository: repository,
-        notificationScheduler: InMemoryNotificationScheduler(),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await pumpMiniRouletteApp(tester, repository: repository);
 
     expect(find.text('ミニルーレット'), findsOneWidget);
     expect(find.text('今日のランチ'), findsOneWidget);
@@ -47,13 +41,7 @@ void main() {
     );
     addTearDown(repository.close);
 
-    await tester.pumpWidget(
-      MiniRouletteApp(
-        roulettesRepository: repository,
-        notificationScheduler: InMemoryNotificationScheduler(),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await pumpMiniRouletteApp(tester, repository: repository);
     await tester.tap(find.text('今日のランチ'));
     await tester.pumpAndSettle();
 
@@ -71,13 +59,7 @@ void main() {
     );
     addTearDown(repository.close);
 
-    await tester.pumpWidget(
-      MiniRouletteApp(
-        roulettesRepository: repository,
-        notificationScheduler: InMemoryNotificationScheduler(),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await pumpMiniRouletteApp(tester, repository: repository);
     await tester.tap(find.text('今日のランチ'));
     await tester.pumpAndSettle();
 
@@ -101,13 +83,7 @@ void main() {
     );
     addTearDown(repository.close);
 
-    await tester.pumpWidget(
-      MiniRouletteApp(
-        roulettesRepository: repository,
-        notificationScheduler: InMemoryNotificationScheduler(),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await pumpMiniRouletteApp(tester, repository: repository);
     await tester.tap(find.text('足りないルーレット'));
     await tester.pumpAndSettle();
 
@@ -122,13 +98,7 @@ void main() {
     );
     addTearDown(repository.close);
 
-    await tester.pumpWidget(
-      MiniRouletteApp(
-        roulettesRepository: repository,
-        notificationScheduler: InMemoryNotificationScheduler(),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await pumpMiniRouletteApp(tester, repository: repository);
     await tester.tap(find.text('ルーレットを追加'));
     await tester.pumpAndSettle();
 

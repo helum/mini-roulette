@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mini_roulette/app.dart';
 import 'package:mini_roulette/data/datasources/local_notifications_api.dart';
+import 'package:mini_roulette/data/datasources/local_onboarding_api.dart';
 import 'package:mini_roulette/data/datasources/local_roulettes_api.dart';
 import 'package:mini_roulette/data/repositories/notification_scheduler_impl.dart';
+import 'package:mini_roulette/data/repositories/onboarding_repository_impl.dart';
 import 'package:mini_roulette/data/repositories/roulettes_repository_impl.dart';
 import 'package:mini_roulette/domain/repositories/notification_scheduler.dart';
 import 'package:mini_roulette/domain/repositories/roulettes_repository.dart';
@@ -32,10 +34,12 @@ Future<void> main() async {
     migrationCompletedKey: '__roulette_prefs_migration_completed__',
   );
 
+  final preferences = SharedPreferencesAsync(options: sharedPreferencesOptions);
   final roulettesRepository = RoulettesRepositoryImpl(
-    roulettesApi: await LocalRoulettesApi.create(
-      plugin: SharedPreferencesAsync(options: sharedPreferencesOptions),
-    ),
+    roulettesApi: await LocalRoulettesApi.create(plugin: preferences),
+  );
+  final onboardingRepository = OnboardingRepositoryImpl(
+    onboardingApi: LocalOnboardingApi(plugin: preferences),
   );
   final notificationScheduler = NotificationSchedulerImpl(
     api: await LocalNotificationsApi.create(),
@@ -45,6 +49,7 @@ Future<void> main() async {
     MiniRouletteApp(
       roulettesRepository: roulettesRepository,
       notificationScheduler: notificationScheduler,
+      onboardingRepository: onboardingRepository,
     ),
   );
 

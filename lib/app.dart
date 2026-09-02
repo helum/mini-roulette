@@ -5,10 +5,12 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mini_roulette/domain/entities/roulette_category.dart';
 import 'package:mini_roulette/domain/repositories/notification_scheduler.dart';
+import 'package:mini_roulette/domain/repositories/onboarding_repository.dart';
 import 'package:mini_roulette/domain/repositories/roulettes_repository.dart';
 import 'package:mini_roulette/presentation/controllers/domain/content_controller.dart';
+import 'package:mini_roulette/presentation/controllers/domain/onboarding_controller.dart';
 import 'package:mini_roulette/presentation/pages/edit_category/edit_category_page.dart';
-import 'package:mini_roulette/presentation/pages/home/home_page.dart';
+import 'package:mini_roulette/presentation/pages/root/root_page.dart';
 import 'package:mini_roulette/presentation/pages/spin/spin_page.dart';
 import 'package:mini_roulette/presentation/shared/theme/app_colors.dart';
 
@@ -17,11 +19,13 @@ class MiniRouletteApp extends StatelessWidget {
     super.key,
     required this.roulettesRepository,
     required this.notificationScheduler,
+    required this.onboardingRepository,
     this.navigatorKey,
   });
 
   final RoulettesRepository roulettesRepository;
   final NotificationScheduler notificationScheduler;
+  final OnboardingRepository onboardingRepository;
   final GlobalKey<NavigatorState>? navigatorKey;
 
   @override
@@ -30,6 +34,7 @@ class MiniRouletteApp extends StatelessWidget {
       overrides: [
         roulettesRepositoryProvider.overrideWithValue(roulettesRepository),
         notificationSchedulerProvider.overrideWithValue(notificationScheduler),
+        onboardingRepositoryProvider.overrideWithValue(onboardingRepository),
       ],
       child: _MiniRouletteAppView(navigatorKey: navigatorKey),
     );
@@ -77,6 +82,7 @@ class _MiniRouletteAppViewState extends ConsumerState<_MiniRouletteAppView> {
   }
 
   Future<void> _openCategory(String categoryId) async {
+    await _skipOnboardingIfNeeded();
     final categories = await ref.read(contentControllerProvider.future);
     if (!mounted) {
       return;
@@ -96,6 +102,13 @@ class _MiniRouletteAppViewState extends ConsumerState<_MiniRouletteAppView> {
           ? SpinPage.route(categoryId: categoryId)
           : EditCategoryPage.route(categoryId: categoryId),
     );
+  }
+
+  Future<void> _skipOnboardingIfNeeded() async {
+    final completed = await ref.read(onboardingControllerProvider.future);
+    if (!completed) {
+      await ref.read(onboardingControllerProvider.notifier).complete();
+    }
   }
 
   RouletteCategory? _byId(List<RouletteCategory> categories, String id) {
@@ -121,7 +134,7 @@ class _MiniRouletteAppViewState extends ConsumerState<_MiniRouletteAppView> {
         GlobalCupertinoLocalizations.delegate,
       ],
       theme: buildAppTheme(),
-      home: const HomePage(),
+      home: const RootPage(),
     );
   }
 }
